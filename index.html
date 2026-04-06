@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personalized Health & FFM Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        /* ディストピア・アシンメトリーな退廃的デザイン */
+        body {
+            background-color: #1a1a1a;
+            color: #b0b0b0;
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            padding: 20px;
+            background-image: repeating-linear-gradient(45deg, #181818 25%, transparent 25%, transparent 75%, #181818 75%, #181818), repeating-linear-gradient(45deg, #181818 25%, #1a1a1a 25%, #1a1a1a 75%, #181818 75%, #181818);
+            background-position: 0 0, 2px 2px;
+            background-size: 4px 4px;
+        }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 25px;
+            max-width: 1250px;
+            margin: 0 auto;
+        }
+        .input-section {
+            flex: 1 1 340px;
+            background: #222;
+            padding: 20px 15px 30px 25px;
+            border-left: 6px solid #8b4513;
+            border-bottom: 2px solid #333;
+            box-shadow: -5px 5px 15px rgba(0,0,0,0.8);
+        }
+        .dashboard-section {
+            flex: 2 1 650px;
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+        .card {
+            background: #202020;
+            padding: 25px 20px;
+            border-right: 4px solid #4a5d23;
+            box-shadow: 3px 3px 12px rgba(0,0,0,0.6);
+        }
+        h2, h3 { 
+            color: #c4c4c4;
+            border-bottom: 1px dashed #555; 
+            padding-bottom: 10px; 
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        label { font-size: 0.9em; color: #888; display: block; margin-top: 15px;}
+        input[type="number"], input[type="date"], input[type="file"], textarea {
+            width: 100%;
+            margin-bottom: 5px;
+            padding: 10px;
+            background: #111;
+            border: 1px solid #333;
+            border-top: 2px solid #555;
+            color: #dcdcdc;
+            box-sizing: border-box;
+            font-family: inherit;
+            resize: vertical;
+        }
+        input:focus, textarea:focus { outline: none; border-color: #8b4513; }
+        
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 5px;
+            margin-bottom: 5px;
+        }
+        .quick-gram {
+            width: 70px !important;
+            padding: 5px !important;
+            margin-bottom: 0 !important;
+            text-align: right;
+        }
+        .quick-btn {
+            background: #2a2a2a;
+            color: #aaa;
+            border: 1px solid #444;
+            padding: 6px 10px;
+            font-size: 0.8em;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .quick-btn:hover { background: #8b4513; color: #fff; border-color: #8b4513; }
+        
+        .clear-btn { border-color: #5a3333; color: #995555; }
+        .clear-btn:hover { background: #662222; color: #fff; border-color: #662222; }
+
+        .submit-btn {
+            width: 100%;
+            padding: 12px;
+            background: #3a3a3a;
+            color: #ccc;
+            border: none;
+            border-left: 5px solid #8b4513;
+            cursor: pointer;
+            font-weight: bold;
+            letter-spacing: 2px;
+            margin-top: 20px;
+            transition: 0.3s;
+        }
+        .submit-btn:hover { background: #4a4a4a; padding-left: 20px; }
+        .highlight { color: #d88151; font-weight: bold; }
+        .good-trend { color: #6b8e23; }
+        .bad-trend { color: #cd5c5c; }
+        .param-text { font-size: 0.85em; color: #888; margin: 8px 0; line-height: 1.4;}
+        
+        .migration-section {
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 1px dashed #555;
+            background: rgba(0,0,0,0.2);
+            padding: 15px;
+        }
+        
+        /* トレーナー風のメッセージエリア装飾 */
+        .trainer-msg {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 15px;
+            border-radius: 4px;
+            border-left: 3px solid #d88151;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="input-section">
+        <h2>Data Terminal</h2>
+        <label>Date</label>
+        <input type="date" id="dateInput">
+        
+        <div style="display:flex; gap:10px;">
+            <div style="flex:1;">
+                <label>体重 (kg)</label>
+                <input type="number" step="0.1" id="weightInput">
+            </div>
+            <div style="flex:1;">
+                <label>体脂肪率 (%)</label>
+                <input type="number" step="0.1" id="fatInput">
+            </div>
+        </div>
+
+        <div style="display:flex; gap:10px;">
+            <div style="flex:1;">
+                <label>睡眠時間 (h)</label>
+                <input type="number" step="0.5" id="sleepInput" value="7">
+            </div>
+            <div style="flex:1;">
+                <label>水分量 (L)</label>
+                <input type="number" step="0.1" id="waterInput" value="2.0">
+            </div>
+        </div>
+        
+        <label>Breakfast</label>
+        <div class="btn-group">
+            <input type="number" id="gramBf" class="quick-gram" placeholder="g(任意)">
+            <button class="quick-btn" type="button" onclick="addFood('breakfastInput', 'gramBf', 'プロテイン')">[ プロテイン ]</button>
+            <button class="quick-btn clear-btn" type="button" onclick="clearText('breakfastInput')">[ CLEAR ]</button>
+        </div>
+        <textarea id="breakfastInput" rows="1" placeholder="自由入力"></textarea>
+        
+        <label>Lunch</label>
+        <div class="btn-group">
+            <input type="number" id="gramLu" class="quick-gram" placeholder="g(任意)">
+            <button class="quick-btn" type="button" onclick="addFood('lunchInput', 'gramLu', '鶏むね肉')">[ 鶏むね肉 ]</button>
+            <button class="quick-btn" type="button" onclick="addFood('lunchInput', 'gramLu', 'ご飯')">[ ご飯 ]</button>
+            <button class="quick-btn" type="button" onclick="addFood('lunchInput', 'gramLu', 'ゆで卵')">[ ゆで卵 ]</button>
+            <button class="quick-btn clear-btn" type="button" onclick="clearText('lunchInput')">[ CLEAR ]</button>
+        </div>
+        <textarea id="lunchInput" rows="2" placeholder="自由入力"></textarea>
+        
+        <label>Dinner</label>
+        <div class="btn-group">
+            <button class="quick-btn clear-btn" type="button" onclick="clearText('dinnerInput')">[ CLEAR ]</button>
+        </div>
+        <textarea id="dinnerInput" rows="2" placeholder="自由入力"></textarea>
+        
+        <label>Exercise</label>
+        <div class="btn-group">
+            <button class="quick-btn" type="button" onclick="addSimpleText('exerciseInput', 'ボクササイズ')">[ ボクササイズ ]</button>
+            <button class="quick-btn" type="button" onclick="addSimpleText('exerciseInput', '休養日')">[ 休養 ]</button>
+            <button class="quick-btn clear-btn" type="button" onclick="clearText('exerciseInput')">[ CLEAR ]</button>
+        </div>
+        <textarea id="exerciseInput" rows="2" placeholder="自由入力"></textarea>
+        
+        <button class="submit-btn" onclick="saveData()">SYNC DATA</button>
+
+        <div class="migration-section">
+            <h3 style="font-size: 1em; border:none; margin:0 0 10px 0;">Data Migration</h3>
+            <p class="param-text">過去のスプレッドシート（CSV形式）を読み込みます。</p>
+            <input type="file" id="csvFileInput" accept=".csv">
+            <button class="quick-btn" type="button" style="width:100%; margin-top:5px;" onclick="importCSV()">[ CSVを解析してインポート ]</button>
+        </div>
+    </div>
+
+    <div class="dashboard-section">
+        <div class="card">
+            <h3>📈 Analysis Chart (Weight, FFM & Fibonacci)</h3>
+            <canvas id="trendChart"></canvas>
+        </div>
+
+        <div class="card">
+            <h3>👩‍🏫 AI Trainer's Analytics (前日比分析)</h3>
+            <div id="adviceDisplay">データを入力すると、専属トレーナーからのアドバイスが表示されます。</div>
+        </div>
+
+        <div class="card">
+            <h3>🔮 Predictive Model (明日の予測)</h3>
+            <div id="predictionDisplay">データを入力すると、明日の推移予測が表示されます。</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const STORAGE_KEY = 'healthTrackerData_v6';
+    let healthData = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+    
+    const PERSONAL_SPEC = { age: 39, height: 172 };
+
+    window.onload = () => {
+        document.getElementById('dateInput').valueAsDate = new Date();
+        updateDashboard();
+    };
+
+    function addFood(elementId, gramInputId, foodName) {
+        const el = document.getElementById(elementId);
+        const gramEl = document.getElementById(gramInputId);
+        const gramValue = gramEl.value.trim();
+        const textToAdd = gramValue ? `${foodName} ${gramValue}g` : foodName;
+        el.value = el.value.trim() === '' ? textToAdd : el.value + '、' + textToAdd;
+        gramEl.value = ''; 
+    }
+
+    function addSimpleText(elementId, text) {
+        const el = document.getElementById(elementId);
+        el.value = el.value.trim() === '' ? text : el.value + '、' + text;
+    }
+
+    function clearText(elementId) {
+        document.getElementById(elementId).value = '';
+    }
+
+    function saveData() {
+        const date = document.getElementById('dateInput').value;
+        const weight = parseFloat(document.getElementById('weightInput').value);
+        const fat = parseFloat(document.getElementById('fatInput').value);
+        
+        if(!weight || !fat) { alert("体重と体脂肪率は必須です。"); return; }
+
+        const ffm = weight * (1 - (fat / 100));
+        const entry = {
+            date: date, weight: weight, fat: fat, ffm: ffm,
+            sleep: parseFloat(document.getElementById('sleepInput').value) || 0,
+            water: parseFloat(document.getElementById('waterInput').value) || 0,
+            breakfast: document.getElementById('breakfastInput').value,
+            lunch: document.getElementById('lunchInput').value,
+            dinner: document.getElementById('dinnerInput').value,
+            exercise: document.getElementById('exerciseInput').value
+        };
+
+        const existingIndex = healthData.findIndex(d => d.date === date);
+        if (existingIndex >= 0) { healthData[existingIndex] = entry; } 
+        else { healthData.push(entry); }
+
+        saveAndRefresh();
+    }
+
+    function importCSV() {
+        const fileInput = document.getElementById('csvFileInput');
+        const file = fileInput.files[0];
+        
+        if (!file) {
+            alert("インポートするCSVファイルを選択してください。");
+            return;
+        }
+
+        let fileYear = new Date().getFullYear();
+        const yearMatch = file.name.match(/(20\d{2})/);
+        if(yearMatch) {
+            fileYear = yearMatch[1];
+        }
+
+        Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                let importedCount = 0;
+
+                results.data.forEach(row => {
+                    const keys = Object.keys(row);
+                    const dateKey = keys.find(k => k.includes('日付'));
+                    const weightKey = keys.find(k => k.includes('体重'));
+                    const fatKey = keys.find(k => k.includes('体脂肪'));
+                    const mealKey = keys.find(k => k.includes('食'));
+                    const exerciseKey = keys.find(k => k.includes('運'));
+                    const cycleKey = keys.find(k => k.includes('サイクル'));
+
+                    if(!dateKey || !weightKey || !fatKey) return;
+
+                    let dateStr = row[dateKey];
+                    const weight = parseFloat(row[weightKey]);
+                    const fat = parseFloat(row[fatKey]);
+
+                    if(!dateStr || isNaN(weight) || isNaN(fat)) return;
+
+                    if(dateStr.includes('月') && dateStr.includes('日')) {
+                        let cleanDate = dateStr.replace('日', '').split('月');
+                        let m = cleanDate[0].trim().padStart(2, '0');
+                        let d = cleanDate[1].trim().padStart(2, '0');
+                        dateStr = `${fileYear}-${m}-${d}`;
+                    } else {
+                        dateStr = dateStr.replace(/\//g, '-');
+                    }
+
+                    const mealStr = row[mealKey] || "";
+                    let bf = "", lu = "", dn = "";
+
+                    if(mealStr.includes('【') || mealStr.includes('[')) {
+                        const bfMatch = mealStr.match(/(?:【朝】|\[朝\])(.*?)(?=(?:【昼】|\[昼\]|【夜】|\[夜\]|【補足】|\[補足\]|$))/s);
+                        const luMatch = mealStr.match(/(?:【昼】|\[昼\])(.*?)(?=(?:【朝】|\[朝\]|【夜】|\[夜\]|【補足】|\[補足\]|$))/s);
+                        const dnMatch = mealStr.match(/(?:【夜】|\[夜\])(.*?)(?=(?:【朝】|\[朝\]|【昼】|\[昼\]|【補足】|\[補足\]|$))/s);
+
+                        if (bfMatch) bf = bfMatch[1].trim();
+                        if (luMatch) lu = luMatch[1].trim();
+                        if (dnMatch) dn = dnMatch[1].trim();
+                    } else {
+                        lu = mealStr.trim();
+                    }
+
+                    let exStr = row[exerciseKey] || "";
+                    if(row[cycleKey] && row[cycleKey] !== "記録なし" && row[cycleKey].trim() !== "") {
+                        exStr = `[サイクル] ${row[cycleKey]}\n${exStr}`;
+                    }
+
+                    const ffm = weight * (1 - (fat / 100));
+
+                    const entry = {
+                        date: dateStr,
+                        weight: weight,
+                        fat: fat,
+                        ffm: ffm,
+                        sleep: 7.0,
+                        water: 2.0,
+                        breakfast: bf,
+                        lunch: lu,
+                        dinner: dn,
+                        exercise: exStr.trim()
+                    };
+
+                    const existingIndex = healthData.findIndex(d => d.date === entry.date);
+                    if (existingIndex >= 0) {
+                        healthData[existingIndex] = entry;
+                    } else {
+                        healthData.push(entry);
+                    }
+                    importedCount++;
+                });
+
+                saveAndRefresh();
+                alert(`${importedCount}日分のデータを解析・統合しました！お疲れ様です✨\n（ファイル: ${file.name}）`);
+                fileInput.value = ""; 
+            }
+        });
+    }
+
+    function saveAndRefresh() {
+        healthData.sort((a, b) => new Date(a.date) - new Date(b.date));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(healthData));
+        updateDashboard();
+    }
+
+    function updateDashboard() {
+        if (healthData.length === 0) return;
+        drawChart();
+        generateAdviceAndPrediction();
+    }
+
+    let chartInstance = null;
+    function drawChart() {
+        const ctx = document.getElementById('trendChart').getContext('2d');
+        const labels = healthData.map(d => d.date);
+        const weights = healthData.map(d => d.weight);
+        const ffms = healthData.map(d => d.ffm);
+
+        const maxWeight = Math.max(...weights);
+        const minWeight = Math.min(...weights);
+        const diff = maxWeight - minWeight;
+
+        const fib382 = maxWeight - (diff * 0.382);
+        const fib618 = maxWeight - (diff * 0.618);
+
+        if (chartInstance) chartInstance.destroy();
+
+        chartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: '体重 (kg)', data: weights, borderColor: '#8b4513',
+                        backgroundColor: 'transparent', yAxisID: 'y', tension: 0.2, borderWidth: 2
+                    },
+                    {
+                        label: 'FFM (除脂肪体重)', data: ffms, borderColor: '#4a5d23',
+                        backgroundColor: 'transparent', yAxisID: 'y', tension: 0.2, borderWidth: 2, borderDash: [5, 5]
+                    },
+                    {
+                        label: 'Fib 38.2%', data: weights.map(() => fib382),
+                        borderColor: 'rgba(255, 255, 255, 0.1)', borderWidth: 1, pointRadius: 0, yAxisID: 'y'
+                    },
+                    {
+                        label: 'Fib 61.8%', data: weights.map(() => fib618),
+                        borderColor: 'rgba(255, 255, 255, 0.1)', borderWidth: 1, pointRadius: 0, yAxisID: 'y'
+                    }
+                ]
+            },
+            options: {
+                responsive: true, color: '#aaa',
+                scales: {
+                    x: { grid: { color: '#333' } },
+                    y: { type: 'linear', display: true, position: 'left', grid: { color: '#333' }, suggestedMin: minWeight - 2, suggestedMax: maxWeight + 2 }
+                },
+                plugins: { legend: { labels: { color: '#aaa' } } }
+            }
+        });
+    }
+
+    function extractGrams(text, foodName) {
+        let total = 0;
+        const regex = new RegExp(foodName + '\\s*\\(?(\\d+)\\)?g', 'g');
+        const matches = [...text.matchAll(regex)];
+        for (const match of matches) { total += parseInt(match[1], 10); }
+        return total;
+    }
+
+    function generateAdviceAndPrediction() {
+        const todayStr = document.getElementById('dateInput').value;
+        const todayIndex = healthData.findIndex(d => d.date === todayStr);
+        const adviceDiv = document.getElementById('adviceDisplay');
+        const predDiv = document.getElementById('predictionDisplay');
+
+        if (todayIndex < 0) return;
+        const todayData = healthData[todayIndex];
+
+        if (todayIndex > 0) {
+            const yday = healthData[todayIndex - 1];
+            const weightDiff = (todayData.weight - yday.weight).toFixed(2);
+            const ffmDiff = (todayData.ffm - yday.ffm).toFixed(2);
+            
+            let html = `<p>本日の体重: <span class="highlight">${todayData.weight}kg</span> (前日比 ${weightDiff > 0 ? '+'+weightDiff : weightDiff}kg)</p>`;
+            html += `<p>本日のFFM: <span class="highlight">${todayData.ffm.toFixed(1)}kg</span> (前日比 ${ffmDiff > 0 ? '+'+ffmDiff : ffmDiff}kg)</p>`;
+
+            let advice = "<div class='trainer-msg'>";
+            
+            // FFMと体重の女性トレーナー風分析
+            if (weightDiff < 0 && ffmDiff >= -0.1) { 
+                advice += "<span class='good-trend'>✨ 素晴らしいです！FFM（除脂肪体重）をしっかりキープしたまま体重が落ちていますね。純粋な体脂肪や余分な水分が減っている証拠ですよ♪ この調子でいきましょう！</span><br>"; 
+            } else if (weightDiff < 0 && ffmDiff < -0.1) { 
+                advice += "<span class='bad-trend'>💦 ちょっと注意ですね。体重と一緒に大切なFFM（筋肉量など）も落ちてしまっています。もしかするとカロリーやタンパク質が足りていないかも？しっかり食べてリカバリーしましょうね！</span><br>"; 
+            } else if (weightDiff > 0 && ffmDiff > 0) { 
+                advice += "💪 バルクアップのいい兆候ですよ！体重もFFMも増えています。筋肉にしっかり栄養が届いている証拠なので、筋肉量アップが期待できますね✨<br>"; 
+            } else if (weightDiff > 0 && ffmDiff <= 0) { 
+                advice += "<span class='bad-trend'>💦 うーん、FFMが増えずに体重が増えているみたいです。塩分の摂りすぎでむくんでいたり、少し体脂肪が増えちゃっているかも。今日のお水と食事、少し意識してみてくださいね！</span><br>"; 
+            }
+
+            // 食事内容のトレーナー風分析
+            const ydayMeals = yday.breakfast + " " + yday.lunch + " " + yday.dinner;
+            const chickenGrams = extractGrams(ydayMeals, "鶏むね肉");
+            const riceGrams = extractGrams(ydayMeals, "ご飯");
+
+            if (chickenGrams > 0) {
+                const proteinEstimate = (chickenGrams * 0.22).toFixed(1);
+                advice += `<p class="param-text">▶ 昨日は鶏むね肉（${chickenGrams}g）をしっかり食べられましたね！推定で約${proteinEstimate}gの良質なタンパク質が摂れているので、筋肉の修復もバッチリです💮</p>`;
+            }
+            if (riceGrams > 0) {
+                const carbEstimate = (riceGrams * 0.37).toFixed(1);
+                advice += `<p class="param-text">▶ ご飯（${riceGrams}g）で約${carbEstimate}gの糖質エネルギーも補給できていますね🍚 トレーニングのパワー源としてすごくいい感じです！</p>`;
+            }
+            if (yday.sleep < 6) {
+                advice += "<p class='param-text'>※ただ、少し睡眠時間が短いのが気になります😢 睡眠不足だと脂肪が燃えにくくなっちゃうので、今日は無理せずゆっくり休んでくださいね🌙</p>";
+            }
+
+            adviceDiv.innerHTML = html + advice + "</div>";
+        }
+
+        // --- 明日の推移予測（女性トレーナー風） ---
+        const bmr = (10 * todayData.weight) + (6.25 * PERSONAL_SPEC.height) - (5 * PERSONAL_SPEC.age) + 5;
+        let predWeight = todayData.weight;
+        let predText = `ちなみに、推定基礎代謝はだいたい ${bmr.toFixed(0)} kcalくらいですね！<br>`;
+
+        if (todayData.exercise.includes('ボクササイズ')) {
+            predWeight -= 0.3;
+            predText += "今日はボクササイズでたっぷり動いたので、消費カロリーもバッチリです🥊✨ 筋肉が修復されるときに一時的に水分を引き込むので、明日は少し体重が張るかもしれませんが、しっかり燃焼モードに入っているので安心してくださいね🔥";
+        } else if (todayData.exercise.includes('休養日') || todayData.exercise.includes('完全休養日') || todayData.exercise.trim() === '') {
+            predText += "今日はゆっくり休めましたか？🍀 しっかり休むことでFFMが回復するので、明日の体重はキープか、ほんの少し増えるくらいで落ち着くと思います。焦らずいきましょう！";
+        } else {
+            predWeight -= 0.1;
+            predText += "今日の活動と食事のバランスを見る限り、明日はこのまま緩やかな推移になりそうですね✨ その調子で明日も一緒に頑張りましょう！";
+        }
+
+        predDiv.innerHTML = `<p>予測体重: <span class="highlight">約 ${predWeight.toFixed(1)} kg</span></p><div class="trainer-msg"><p style="font-size:0.9em; margin:0;">${predText}</p></div>`;
+    }
+</script>
+</body>
+</html>

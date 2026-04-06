@@ -90,7 +90,6 @@
             transition: 0.2s;
         }
         .quick-btn:hover { background: #8b4513; color: #fff; border-color: #8b4513; }
-        
         .clear-btn { border-color: #5a3333; color: #995555; }
         .clear-btn:hover { background: #662222; color: #fff; border-color: #662222; }
 
@@ -111,7 +110,7 @@
         .highlight { color: #d88151; font-weight: bold; }
         .good-trend { color: #6b8e23; }
         .bad-trend { color: #cd5c5c; }
-        .param-text { font-size: 0.85em; color: #888; margin: 8px 0; line-height: 1.4;}
+        .param-text { font-size: 0.85em; color: #888; margin: 8px 0; line-height: 1.5;}
         
         .migration-section {
             margin-top: 30px;
@@ -124,10 +123,11 @@
         /* トレーナー風のメッセージエリア装飾 */
         .trainer-msg {
             background: rgba(255, 255, 255, 0.03);
-            padding: 15px;
+            padding: 18px;
             border-radius: 4px;
-            border-left: 3px solid #d88151;
+            border-left: 4px solid #d88151;
             margin-top: 10px;
+            line-height: 1.6;
         }
     </style>
 </head>
@@ -222,7 +222,7 @@
 </div>
 
 <script>
-    const STORAGE_KEY = 'healthTrackerData_v6';
+    const STORAGE_KEY = 'healthTrackerData_v7';
     let healthData = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
     
     const PERSONAL_SPEC = { age: 39, height: 172 };
@@ -278,24 +278,17 @@
     function importCSV() {
         const fileInput = document.getElementById('csvFileInput');
         const file = fileInput.files[0];
-        
-        if (!file) {
-            alert("インポートするCSVファイルを選択してください。");
-            return;
-        }
+        if (!file) { alert("インポートするCSVファイルを選択してください。"); return; }
 
         let fileYear = new Date().getFullYear();
         const yearMatch = file.name.match(/(20\d{2})/);
-        if(yearMatch) {
-            fileYear = yearMatch[1];
-        }
+        if(yearMatch) { fileYear = yearMatch[1]; }
 
         Papa.parse(file, {
             header: true,
             skipEmptyLines: true,
             complete: function(results) {
                 let importedCount = 0;
-
                 results.data.forEach(row => {
                     const keys = Object.keys(row);
                     const dateKey = keys.find(k => k.includes('日付'));
@@ -306,11 +299,9 @@
                     const cycleKey = keys.find(k => k.includes('サイクル'));
 
                     if(!dateKey || !weightKey || !fatKey) return;
-
                     let dateStr = row[dateKey];
                     const weight = parseFloat(row[weightKey]);
                     const fat = parseFloat(row[fatKey]);
-
                     if(!dateStr || isNaN(weight) || isNaN(fat)) return;
 
                     if(dateStr.includes('月') && dateStr.includes('日')) {
@@ -324,12 +315,10 @@
 
                     const mealStr = row[mealKey] || "";
                     let bf = "", lu = "", dn = "";
-
                     if(mealStr.includes('【') || mealStr.includes('[')) {
                         const bfMatch = mealStr.match(/(?:【朝】|\[朝\])(.*?)(?=(?:【昼】|\[昼\]|【夜】|\[夜\]|【補足】|\[補足\]|$))/s);
                         const luMatch = mealStr.match(/(?:【昼】|\[昼\])(.*?)(?=(?:【朝】|\[朝\]|【夜】|\[夜\]|【補足】|\[補足\]|$))/s);
                         const dnMatch = mealStr.match(/(?:【夜】|\[夜\])(.*?)(?=(?:【朝】|\[朝\]|【昼】|\[昼\]|【補足】|\[補足\]|$))/s);
-
                         if (bfMatch) bf = bfMatch[1].trim();
                         if (luMatch) lu = luMatch[1].trim();
                         if (dnMatch) dn = dnMatch[1].trim();
@@ -343,31 +332,19 @@
                     }
 
                     const ffm = weight * (1 - (fat / 100));
-
                     const entry = {
-                        date: dateStr,
-                        weight: weight,
-                        fat: fat,
-                        ffm: ffm,
-                        sleep: 7.0,
-                        water: 2.0,
-                        breakfast: bf,
-                        lunch: lu,
-                        dinner: dn,
-                        exercise: exStr.trim()
+                        date: dateStr, weight: weight, fat: fat, ffm: ffm,
+                        sleep: 7.0, water: 2.0,
+                        breakfast: bf, lunch: lu, dinner: dn, exercise: exStr.trim()
                     };
 
                     const existingIndex = healthData.findIndex(d => d.date === entry.date);
-                    if (existingIndex >= 0) {
-                        healthData[existingIndex] = entry;
-                    } else {
-                        healthData.push(entry);
-                    }
+                    if (existingIndex >= 0) { healthData[existingIndex] = entry; } 
+                    else { healthData.push(entry); }
                     importedCount++;
                 });
-
                 saveAndRefresh();
-                alert(`${importedCount}日分のデータを解析・統合しました！お疲れ様です✨\n（ファイル: ${file.name}）`);
+                alert(`${importedCount}日分のデータを解析・統合しました！\n（ファイル: ${file.name}）`);
                 fileInput.value = ""; 
             }
         });
@@ -391,37 +368,22 @@
         const labels = healthData.map(d => d.date);
         const weights = healthData.map(d => d.weight);
         const ffms = healthData.map(d => d.ffm);
-
         const maxWeight = Math.max(...weights);
         const minWeight = Math.min(...weights);
         const diff = maxWeight - minWeight;
-
         const fib382 = maxWeight - (diff * 0.382);
         const fib618 = maxWeight - (diff * 0.618);
 
         if (chartInstance) chartInstance.destroy();
-
         chartInstance = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: labels,
                 datasets: [
-                    {
-                        label: '体重 (kg)', data: weights, borderColor: '#8b4513',
-                        backgroundColor: 'transparent', yAxisID: 'y', tension: 0.2, borderWidth: 2
-                    },
-                    {
-                        label: 'FFM (除脂肪体重)', data: ffms, borderColor: '#4a5d23',
-                        backgroundColor: 'transparent', yAxisID: 'y', tension: 0.2, borderWidth: 2, borderDash: [5, 5]
-                    },
-                    {
-                        label: 'Fib 38.2%', data: weights.map(() => fib382),
-                        borderColor: 'rgba(255, 255, 255, 0.1)', borderWidth: 1, pointRadius: 0, yAxisID: 'y'
-                    },
-                    {
-                        label: 'Fib 61.8%', data: weights.map(() => fib618),
-                        borderColor: 'rgba(255, 255, 255, 0.1)', borderWidth: 1, pointRadius: 0, yAxisID: 'y'
-                    }
+                    { label: '体重 (kg)', data: weights, borderColor: '#8b4513', backgroundColor: 'transparent', yAxisID: 'y', tension: 0.2, borderWidth: 2 },
+                    { label: 'FFM (除脂肪体重)', data: ffms, borderColor: '#4a5d23', backgroundColor: 'transparent', yAxisID: 'y', tension: 0.2, borderWidth: 2, borderDash: [5, 5] },
+                    { label: 'Fib 38.2%', data: weights.map(() => fib382), borderColor: 'rgba(255, 255, 255, 0.1)', borderWidth: 1, pointRadius: 0, yAxisID: 'y' },
+                    { label: 'Fib 61.8%', data: weights.map(() => fib618), borderColor: 'rgba(255, 255, 255, 0.1)', borderWidth: 1, pointRadius: 0, yAxisID: 'y' }
                 ]
             },
             options: {
@@ -461,54 +423,75 @@
             html += `<p>本日のFFM: <span class="highlight">${todayData.ffm.toFixed(1)}kg</span> (前日比 ${ffmDiff > 0 ? '+'+ffmDiff : ffmDiff}kg)</p>`;
 
             let advice = "<div class='trainer-msg'>";
+            advice += "<strong>お疲れ様です！今日の分析結果をお伝えしますね✨</strong><br><br>";
             
-            // FFMと体重の女性トレーナー風分析
+            // FFMと体重の女性トレーナー風分析（熱量高め）
             if (weightDiff < 0 && ffmDiff >= -0.1) { 
-                advice += "<span class='good-trend'>✨ 素晴らしいです！FFM（除脂肪体重）をしっかりキープしたまま体重が落ちていますね。純粋な体脂肪や余分な水分が減っている証拠ですよ♪ この調子でいきましょう！</span><br>"; 
+                advice += "<span class='good-trend'>✨ 素晴らしいペースです！FFM（除脂肪体重）をしっかりキープしたまま体重が落ちていますね。純粋な体脂肪やむくみが取れてきている証拠ですよ♪ 努力がしっかり数字に表れています！</span><br>"; 
             } else if (weightDiff < 0 && ffmDiff < -0.1) { 
-                advice += "<span class='bad-trend'>💦 ちょっと注意ですね。体重と一緒に大切なFFM（筋肉量など）も落ちてしまっています。もしかするとカロリーやタンパク質が足りていないかも？しっかり食べてリカバリーしましょうね！</span><br>"; 
+                advice += "<span class='bad-trend'>💦 少しだけ注意ですね。体重と一緒に大切な筋肉（FFM）も落ちてしまっているかも…。もしかするとカロリーやタンパク質が不足しているかもしれません。しっかり食べてリカバリーしていきましょう！</span><br>"; 
             } else if (weightDiff > 0 && ffmDiff > 0) { 
-                advice += "💪 バルクアップのいい兆候ですよ！体重もFFMも増えています。筋肉にしっかり栄養が届いている証拠なので、筋肉量アップが期待できますね✨<br>"; 
+                advice += "💪 バルクアップのとても良い兆候です！体重もFFMも増えていますね。筋肉にしっかり栄養が届いている証拠なので、このまま筋肉量アップを狙っていきましょう✨<br>"; 
             } else if (weightDiff > 0 && ffmDiff <= 0) { 
-                advice += "<span class='bad-trend'>💦 うーん、FFMが増えずに体重が増えているみたいです。塩分の摂りすぎでむくんでいたり、少し体脂肪が増えちゃっているかも。今日のお水と食事、少し意識してみてくださいね！</span><br>"; 
+                advice += "<span class='bad-trend'>💦 うーん、筋肉量が増えずに体重が増えているみたいです。昨日の塩分でむくんでいるか、少し体脂肪が増えたかも。今日はお水をこまめに飲んで、食事のバランスを意識してみてくださいね！</span><br>"; 
             }
 
-            // 食事内容のトレーナー風分析
+            // 過去データ（運動・食事）の語彙力強化分析
             const ydayMeals = yday.breakfast + " " + yday.lunch + " " + yday.dinner;
+            const ydayEx = yday.exercise;
             const chickenGrams = extractGrams(ydayMeals, "鶏むね肉");
             const riceGrams = extractGrams(ydayMeals, "ご飯");
 
+            advice += "<br><strong>昨日のアクションについて：</strong><br>";
+
+            // 運動の解析強化
+            if (ydayEx.includes("ジョギング") || ydayEx.includes("ウォーキング") || ydayEx.includes("有酸素")) {
+                advice += `<p class="param-text">🏃‍♀️ 昨日は有酸素運動を取り入れていましたね！脂肪燃焼効果がグンと高まっています。心肺機能の向上にも繋がるナイスなアクションです🔥</p>`;
+            }
+            if (ydayEx.includes("筋トレ") || ydayEx.includes("プッシュアップ") || ydayEx.includes("腕立て") || ydayEx.includes("クランチ")) {
+                advice += `<p class="param-text">🏋️‍♀️ 筋トレもしっかりこなしていて流石です！筋肉への刺激は基礎代謝アップの鍵。筋肉の修復時には水分を引き込むので、もし今日体重が張っていても気にしなくて大丈夫ですよ！</p>`;
+            }
+            if (ydayEx.includes("休養日") || ydayEx.includes("完全休養日") || ydayEx.trim() === '') {
+                advice += `<p class="param-text">🍀 昨日は休養を取れましたか？筋肉を成長させるには休むことも立派なトレーニングです。しっかりリカバリーできているはずですよ！</p>`;
+            }
+
+            // 食事・水・睡眠の解析
             if (chickenGrams > 0) {
                 const proteinEstimate = (chickenGrams * 0.22).toFixed(1);
-                advice += `<p class="param-text">▶ 昨日は鶏むね肉（${chickenGrams}g）をしっかり食べられましたね！推定で約${proteinEstimate}gの良質なタンパク質が摂れているので、筋肉の修復もバッチリです💮</p>`;
+                advice += `<p class="param-text">🍗 鶏むね肉（${chickenGrams}g）から推定約${proteinEstimate}gの良質なタンパク質を確保！筋肉が喜んでいます💮</p>`;
+            } else if (ydayMeals.includes("鶏胸肉") || ydayMeals.includes("プロテイン") || ydayMeals.includes("卵")) {
+                advice += `<p class="param-text">🍳 プロテインや卵、鶏肉などでしっかりタンパク質を意識できていますね！</p>`;
             }
-            if (riceGrams > 0) {
-                const carbEstimate = (riceGrams * 0.37).toFixed(1);
-                advice += `<p class="param-text">▶ ご飯（${riceGrams}g）で約${carbEstimate}gの糖質エネルギーも補給できていますね🍚 トレーニングのパワー源としてすごくいい感じです！</p>`;
-            }
-            if (yday.sleep < 6) {
-                advice += "<p class='param-text'>※ただ、少し睡眠時間が短いのが気になります😢 睡眠不足だと脂肪が燃えにくくなっちゃうので、今日は無理せずゆっくり休んでくださいね🌙</p>";
+            
+            if (yday.sleep < 6 && yday.sleep > 0) { // インポート初期値7.0の対策として条件調整
+                advice += "<p class='param-text'>🌙 ただ、少し睡眠時間が短いのが心配です😢 睡眠不足だと脂肪が燃えにくくなっちゃうので、今日は無理せずゆっくり休んでくださいね。</p>";
+            } else if (yday.sleep >= 7) {
+                advice += "<p class='param-text'>🌙 睡眠もしっかり取れていて理想的です！成長ホルモンがしっかり分泌されていますよ。</p>";
             }
 
             adviceDiv.innerHTML = html + advice + "</div>";
         }
 
-        // --- 明日の推移予測（女性トレーナー風） ---
+        // --- 明日の推移予測（女性トレーナー風・熱量高め） ---
         const bmr = (10 * todayData.weight) + (6.25 * PERSONAL_SPEC.height) - (5 * PERSONAL_SPEC.age) + 5;
         let predWeight = todayData.weight;
-        let predText = `ちなみに、推定基礎代謝はだいたい ${bmr.toFixed(0)} kcalくらいですね！<br>`;
+        let predText = `ちなみに、あなたの推定基礎代謝はだいたい ${bmr.toFixed(0)} kcalくらいですね！<br><br>`;
 
-        if (todayData.exercise.includes('ボクササイズ')) {
+        const todayEx = todayData.exercise;
+        if (todayEx.includes('ボクササイズ') || todayEx.includes('ジョギング') || todayEx.includes('有酸素')) {
             predWeight -= 0.3;
-            predText += "今日はボクササイズでたっぷり動いたので、消費カロリーもバッチリです🥊✨ 筋肉が修復されるときに一時的に水分を引き込むので、明日は少し体重が張るかもしれませんが、しっかり燃焼モードに入っているので安心してくださいね🔥";
-        } else if (todayData.exercise.includes('休養日') || todayData.exercise.includes('完全休養日') || todayData.exercise.trim() === '') {
-            predText += "今日はゆっくり休めましたか？🍀 しっかり休むことでFFMが回復するので、明日の体重はキープか、ほんの少し増えるくらいで落ち着くと思います。焦らずいきましょう！";
+            predText += "今日はしっかり運動して消費カロリーを稼げているので、燃焼モード全開です🔥 筋繊維の修復で一時的に水分を引き込んで明日の数字が少しブレるかもしれませんが、中身は確実に引き締まっていますよ！";
+        } else if (todayEx.includes('筋トレ') || todayEx.includes('プッシュアップ') || todayEx.includes('クランチ')) {
+            predWeight -= 0.2;
+            predText += "今日のハードな筋トレ、お疲れ様でした💪 筋肉がパンプアップして代謝が上がっています。明日は筋肉の張りが残るかもしれませんが、FFMキープには最高のアクションです！";
+        } else if (todayEx.includes('休養日') || todayEx.includes('完全休養日') || todayEx.trim() === '') {
+            predText += "今日は積極的にお休みする日ですね🍀 無理せずしっかり栄養と睡眠をとってFFMを回復させましょう。明日の体重はキープか、微増くらいで落ち着くと思います。焦らずいきましょう！";
         } else {
             predWeight -= 0.1;
-            predText += "今日の活動と食事のバランスを見る限り、明日はこのまま緩やかな推移になりそうですね✨ その調子で明日も一緒に頑張りましょう！";
+            predText += "今日の活動と食事のバランスを見る限り、明日はこのまま順調に緩やかな推移になりそうですね✨ その調子で明日も一緒に頑張りましょう！";
         }
 
-        predDiv.innerHTML = `<p>予測体重: <span class="highlight">約 ${predWeight.toFixed(1)} kg</span></p><div class="trainer-msg"><p style="font-size:0.9em; margin:0;">${predText}</p></div>`;
+        predDiv.innerHTML = `<p>予測体重: <span class="highlight">約 ${predWeight.toFixed(1)} kg</span></p><div class="trainer-msg"><p style="font-size:0.9em; margin:0; line-height: 1.6;">${predText}</p></div>`;
     }
 </script>
 </body>
